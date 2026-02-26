@@ -1,1 +1,1 @@
-print("Hello world")
+exemple = 43
