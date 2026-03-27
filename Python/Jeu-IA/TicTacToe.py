@@ -3,9 +3,11 @@ import math
 table = [" " for i in range(9)]
 player1 = "X"
 aiPlayer = "O"
+bestMove = 0
 
 def writeTable() : 
     for i in range(0, 9, 3) : 
+        # Ecrit ligne par ligne le tableau
         print(f"{table[i]} | {table[i+1]} | {table[i+2]}")
         if i < 6 :
             print("---------")
@@ -14,6 +16,9 @@ def writeInTable(player, index) :
     if table[index] != " " : return
     table[index] = player 
     writeTable()
+
+def availablesMoves() :
+    return [i for i, spot in enumerate(table) if spot == " "]
 
 def getWinner() :
     for i in range(0, 9, 3) :
@@ -30,55 +35,39 @@ def play(turn) :
 
 def game() : 
     writeTable()
-    for i in range(9) :
-        if i % 2 == 0 :
+    for i in range(12) : # Dans le cas où un joueur fait une erreur et doit rejouer une fois de plus
+        if i % 2 == 0 : # Permet de faire jouer l'un après l'autre les joueurs 
             writeInTable(player1, play(i))
         else :
-            writeInTable(aiPlayer, get_best_move())
+            writeInTable(aiPlayer)
         if getWinner() == None :
             continue
         else : 
             print(f"Le gagnant est {getWinner()}")
             return
 
-def minimax(recurs, player) :
-    winner = getWinner()
-    if winner == aiPlayer :
-        return 1
-    if winner == player1 :
-        return -1
-    if " " not in table :
-        return 0
-    if player == aiPlayer :
-        best = float("+inf")
-        for i in range(len(table)) :
-            if table[i] != " " : continue
-            table[i] = aiPlayer 
-            score = minimax(recurs + 1, player1)
-            table[i] = " "
-            best = max(score, best)
-        return best
-    else :
-        best = float("-inf")
-        for i in range(len(table)) :
-            if table[i] != " " : continue
-            table[i] = player1 
-            score = minimax(recurs + 1, aiPlayer)
-            table[i] = " "
-            best = max(score, best)
-        return best
+def minimax(turn, player, bestScore, move) :
+    # Défini les scores minimaux et maximaux pour le tour. On fait ça car plus il y faut de tour pour gagner, moins le coup est bon.
+    scoreMin = -1 + turn/8 
+    scoreMax = 1 - turn/8 
+    # Donne les scores en fonction d'une victoire, une défaite ou d'un nul et retourne le coup qui a permis d'arriver à ce résultat
+    if (getWinner() == player1) :
+        if bestScore < scoreMin : 
+            bestScore = scoreMin
+            return move
+    if (getWinner() == aiPlayer) :
+        if bestScore < scoreMax : 
+            bestScore = scoreMax
+            return move
+    if (" " not in table) :
+        if bestScore < 0 :
+            bestScore = 0 
+            return move
+    # Mise en place de la récursivité pour permettre à l'algorithme de voir tout les coups possibles 
     
-def get_best_move():
-    best_score = float("-inf") 
-    best_move = None 
-    for i in range(len(table)): 
-        if table[i] != " " : continue
-        table[i] = aiPlayer 
-        score = minimax(0, aiPlayer)
-        table[i] = " " 
-        if score > best_score: 
-            best_score = score 
-            best_move = i 
-    return best_move
-
-game()
+    if player == aiPlayer :
+        for moves in availablesMoves() :
+            table[moves] = player1
+            bestMove = minimax(turn+1, aiPlayer, bestScore, moves)
+            table[moves] = " "
+        

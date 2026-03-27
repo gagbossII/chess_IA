@@ -31,7 +31,7 @@ def play(turn) :
 
 def game() : 
     writeTable()
-    for i in range(9) :
+    for i in range(100) :
         if i % 2 == 0 :
             writeInTable(player1, play(i))
         else :
