@@ -1,7 +1,8 @@
 import chess
 
+analyseCounter = 0 # Pour le test
 analyseScore = -30
-maxTurnSimulation = 4
+maxTurnSimulation = 2
 materialScore = 0
 board = chess.Board()
 Hplayer = chess.WHITE # H pour humain
@@ -11,6 +12,10 @@ FBestMoves = [list[chess.Move]]
 bestMovesCounter = 1
 eatenPieces = []
 
+def makeHMove() :
+    movestr = str(input("Entrez un coup sous la forme suivante : a2a3. Dans cet exemple, a2 est la case de départ et a3 est la case d'arrivée."))
+    return chess.Move.from_uci(movestr)
+
 def getAvailableMoves():
     return board.generate_legal_moves() 
 
@@ -19,7 +24,10 @@ def playerOpposite(player):
     else: return Hplayer 
 
 def bestMoveSequence(sequence, score):
+    global FBestMoves
     global analyseScore
+    for i in FBestMoves : 
+        if i == sequence : return
     if score < analyseScore :
         return
     elif len(FBestMoves) == 5 :
@@ -30,7 +38,7 @@ def bestMoveSequence(sequence, score):
         FBestMoves.insert(0, sequence)
         analyseScore = score
 
-def calcMaterialScore(pieces: list[chess.Piece], matScore):
+def calcMaterialScore(pieces: list[chess.Piece], matScore: int):
     # Calcule le score de matériel pour chaque pièces prises. Adapté à la fois pour le jeu en général et pour les calculs de l'IA
     for piece in pieces:
         if piece.color == Hplayer :
@@ -49,7 +57,7 @@ def calcMaterialScore(pieces: list[chess.Piece], matScore):
                 case _: continue
     return matScore
 
-def scores(turn, matScore, player, checkRepetition, lastScore) : 
+def scores(turn, matScore: int, player, checkRepetition, lastScore: int) : 
     score = 0
     # Calcule le score de l'IA lors de la fin de la parite simulé par celle-ci
     if board.is_game_over(claim_draw=True): 
@@ -62,21 +70,24 @@ def scores(turn, matScore, player, checkRepetition, lastScore) :
         else : return score
     # Calcule le score de l'IA dans le cas ou aucune solution de mat n'est trouvée mais qu'il y a un échec dnas le dernier coup simulé
     elif turn == maxTurnSimulation :
-        if chess.BaseBoard.attackers(player, chess.BaseBoard.king(playerOpposite(player))) != None: # Analyse si la simulation se termine sur une situation d'échec 
+        if chess.BaseBoard.attackers(board, player, chess.BaseBoard.king(board, playerOpposite(player))) != None: # Analyse si la simulation se termine sur une situation d'échec 
             if player == Hplayer : score = lastScore - 5 - checkRepetition # Plus un échec est répeté, plus celui-ci rapporte de points
             else : score = lastScore + 5 + checkRepetition
         else : score = 0 + lastScore
     else : 
-        if chess.BaseBoard.attackers(player, chess.BaseBoard.king(playerOpposite(player))) != None: # Analyse si la simulation se termine sur une situation d'échec 
+        if chess.BaseBoard.attackers(board, player, chess.BaseBoard.king(board, playerOpposite(player))) != None: # Analyse si la simulation se termine sur une situation d'échec 
             if player == Hplayer : score = lastScore - 2 - checkRepetition # Plus un échecs est répeté, plus celui-ci rapporte de points
             else : score = lastScore + 2 + checkRepetition
         else : score = 0 + lastScore
+    return score
 
 
-
-def minimax(turn, matScore, player, checkHRepetition, checkAIRepetition, lastScore, moveSequence: list, takenPieces: list):
+def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, lastScore: int, moveSequence: list, takenPieces: list):
     global analyseScore
-
+    global analyseCounter
+    analyseCounter +=1
+    if analyseCounter > 50000 : return
+    print("Score : " + str(analyseScore) + ", Count : " + str(analyseCounter)) # Pour tester
     # Permet de jouer directement une des 5 meilleures séquences sans devoir tout analyser à nouveau
     if turn == 0 & len(FBestMoves) != 0: 
         for move in FBestMoves :
@@ -89,37 +100,65 @@ def minimax(turn, matScore, player, checkHRepetition, checkAIRepetition, lastSco
     #Initialisation des variables récursives et analyse des coups. Cette partie retourne à la fois un score et une séquence de coups
     matScore = calcMaterialScore(takenPieces, matScore)
     if player == AIPlayer : 
-        if chess.BaseBoard.piece_at(board.checkers().pop()) != None : checkAIRepetition += 1
-        else : checkAIRepetition = 0
+        if board.checkers() == None : checkAIRepetition = 0
+        else : checkAIRepetition += 1
         newScore = scores(turn, matScore, player, checkAIRepetition, lastScore)
     else : 
-        if chess.BaseBoard.piece_at(board.checkers().pop()) != None : checkHRepetition += 1
-        else : checkHRepetition = 0
+        if board.checkers() == None : checkHRepetition = 0
+        else : checkHRepetition += 1
         newScore = scores(turn, matScore, player, checkHRepetition, lastScore)
-    if board.is_game_over(claim_draw=True) | turn == maxTurnSimulation:
+    if board.is_game_over(claim_draw=True) | (turn == maxTurnSimulation):
         bestMoveSequence(moveSequence, newScore)
         return
 
     # Mise en place de la récursivité
     if board.turn == Hplayer : 
         for moves in getAvailableMoves() :
-            if chess.BaseBoard.piece_at(moves.from_square).color != board.turn :
+            if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
                 continue
-            if chess.BaseBoard.piece_at(moves.to_square) != None :
-                takenPieces.append(chess.BaseBoard.piece_at(moves.to_square))
+            if chess.BaseBoard.piece_at(board, moves.to_square) != None :
+                takenPieces.append(chess.BaseBoard.piece_at(board, moves.to_square))
             board.push(moves)
             moveSequence.append(moves)
-            minimax(turn+0.5, matScore, AIPlayer, checkHRepetition, checkAIRepetition, newScore, moveSequence) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
+            minimax(turn+0.5, matScore, AIPlayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
+            moveSequence.pop(len(moveSequence)-1)
             board.pop()
         return
     if board.turn == AIPlayer : 
         for moves in getAvailableMoves() :
-            if chess.BaseBoard.piece_at(moves.from_square).color != board.turn :
+            if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
                 continue
-            if chess.BaseBoard.piece_at(moves.to_square) != None :
-                takenPieces.append(chess.BaseBoard.piece_at(moves.to_square))
+            if chess.BaseBoard.piece_at(board, moves.to_square) != None :
+                takenPieces.append(chess.BaseBoard.piece_at(board, moves.to_square))
             board.push(moves)
             moveSequence.append(moves)
-            minimax(turn+0.5, matScore, Hplayer, checkHRepetition, checkAIRepetition, newScore, moveSequence) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
+            minimax(turn+0.5, matScore, Hplayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
             board.pop()
         return
+    
+def game() :
+    global analyseCounter
+    print(board)
+    for i in range(100):
+        if board.is_game_over() : print("Stop")
+        if i % 2 == 0 :
+            move = makeHMove()
+            if not(board.is_legal(move)) :
+                print("Coup illégal. Vous avez perdu.")
+                exit(0) # Idée de Mathurin Velas, membre honoraire de la table Pentagonale
+            if chess.BaseBoard.piece_at(board, move.from_square).color != board.turn :
+                print("Mauvaise couleur. Vous avez perdu.")
+                exit(0) # Idée de Mathurin Velas, membre honoraire de la table Pentagonale
+            if chess.BaseBoard.piece_at(board, move.to_square) != None :
+                eatenPieces.append(chess.BaseBoard.piece_at(board, move.to_square))
+            board.push(move)
+            print(board)
+        else : 
+            analyseCounter = 0
+            minimax(0, 0, AIPlayer, 0, 0, 0, [], [])
+            move = FBestMoves[0]
+            print(move)
+            board.push(move[0])
+            print(board)
+            
+game()
