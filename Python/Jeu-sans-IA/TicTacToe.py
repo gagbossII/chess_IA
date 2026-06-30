@@ -24,10 +24,7 @@ def winner() :
     else : return None
 
 def play(turn) : 
-    if turn % 2 == 0 :
-        return int(input("Joueur 1, donnez le numéro de la case où vous voulez jouer : "))
-    else :
-        return int(input("Joueur 2, donnez le numéro de la case où vous voulez jouer : ")) 
+    return int(input("Joueur 1, donnez le numéro de la case où vous voulez jouer : ")) if turn % 2 == 0 else int(input("Joueur 2, donnez le numéro de la case où vous voulez jouer : ")) 
 
 def game() : 
     writeTable()

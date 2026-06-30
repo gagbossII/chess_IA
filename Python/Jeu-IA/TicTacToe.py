@@ -39,7 +39,9 @@ def game() :
     global bestscore
     writeTable()
     for i in range(12) : # Dans le cas où un joueur fait une erreur et doit rejouer une fois de plus
-        if availablesMoves() == [] : print("Egalité")
+        if availablesMoves() == [] : 
+            print("Egalité")
+            return
         if i % 2 == 0 : # Permet de faire jouer l'un après l'autre les joueurs. Tour du joueur.
             writeInTable(player1, play(i))
         else : # Tour de l'IA

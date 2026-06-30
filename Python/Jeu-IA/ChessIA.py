@@ -1,4 +1,5 @@
 import chess
+import copy
 
 analyseCounter = 0 # Pour le test
 analyseScore = -30
@@ -32,10 +33,10 @@ def bestMoveSequence(sequence, score):
         return
     elif len(FBestMoves) == 5 :
         FBestMoves.pop(4)
-        FBestMoves.insert(0, sequence)
+        FBestMoves.insert(0, copy.deepcopy(sequence))
         analyseScore = score
     else : 
-        FBestMoves.insert(0, sequence)
+        FBestMoves.insert(0, copy.deepcopy(sequence))
         analyseScore = score
 
 def calcMaterialScore(pieces: list[chess.Piece], matScore: int):
@@ -83,18 +84,20 @@ def scores(turn, matScore: int, player, checkRepetition, lastScore: int) :
 
 
 def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, lastScore: int, moveSequence: list, takenPieces: list):
+    global bestMovesCounter
     global analyseScore
     global analyseCounter
     analyseCounter +=1
-    if analyseCounter > 50000 : return
+    if analyseCounter > 50000 : return True
     print("Score : " + str(analyseScore) + ", Count : " + str(analyseCounter)) # Pour tester
     # Permet de jouer directement une des 5 meilleures séquences sans devoir tout analyser à nouveau
-    if turn == 0 & len(FBestMoves) != 0: 
+    if turn == 0 and len(FBestMoves) > 1: 
         for move in FBestMoves :
-            if board.peek == move[bestMovesCounter] :
+            if board.peek() == move[bestMovesCounter] :
                 board.push(move[bestMovesCounter+1])
+                print(board)
                 bestMovesCounter += 2
-                return
+                return False
         bestMovesCounter = 1
     
     #Initialisation des variables récursives et analyse des coups. Cette partie retourne à la fois un score et une séquence de coups
@@ -107,9 +110,9 @@ def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, la
         if board.checkers() == None : checkHRepetition = 0
         else : checkHRepetition += 1
         newScore = scores(turn, matScore, player, checkHRepetition, lastScore)
-    if board.is_game_over(claim_draw=True) | (turn == maxTurnSimulation):
+    if board.is_game_over(claim_draw=True) or (turn == maxTurnSimulation):
         bestMoveSequence(moveSequence, newScore)
-        return
+        return True
 
     # Mise en place de la récursivité
     if board.turn == Hplayer : 
@@ -123,7 +126,7 @@ def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, la
             minimax(turn+0.5, matScore, AIPlayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
             moveSequence.pop(len(moveSequence)-1)
             board.pop()
-        return
+        return True
     if board.turn == AIPlayer : 
         for moves in getAvailableMoves() :
             if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
@@ -133,8 +136,9 @@ def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, la
             board.push(moves)
             moveSequence.append(moves)
             minimax(turn+0.5, matScore, Hplayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
+            moveSequence.pop(len(moveSequence)-1)
             board.pop()
-        return
+        return True
     
 def game() :
     global analyseCounter
@@ -155,10 +159,11 @@ def game() :
             print(board)
         else : 
             analyseCounter = 0
-            minimax(0, 0, AIPlayer, 0, 0, 0, [], [])
-            move = FBestMoves[0]
-            print(move)
-            board.push(move[0])
-            print(board)
+            if minimax(0, 0, AIPlayer, 0, 0, 0, [], []) :
+                move = FBestMoves[0]
+                print(move)
+                board.push(move[0])
+                print(board)
+            else : continue
             
 game()
