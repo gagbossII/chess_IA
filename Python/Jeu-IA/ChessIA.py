@@ -3,7 +3,7 @@ import copy
 
 analyseCounter = 0 # Pour le test
 analyseScore = -30
-maxTurnSimulation = 2
+maxTurnSimulation = 3
 materialScore = 0
 board = chess.Board()
 Hplayer = chess.WHITE # H pour humain
@@ -88,12 +88,12 @@ def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, la
     global analyseScore
     global analyseCounter
     analyseCounter +=1
-    if analyseCounter > 50000 : return True
+    if analyseCounter > 15000 : return True
     print("Score : " + str(analyseScore) + ", Count : " + str(analyseCounter)) # Pour tester
     # Permet de jouer directement une des 5 meilleures séquences sans devoir tout analyser à nouveau
     if turn == 0 and len(FBestMoves) > 1: 
         for move in FBestMoves :
-            if board.peek() == move[bestMovesCounter] :
+            if board.peek() == move[bestMovesCounter] and bestMovesCounter < len(move)-1 :
                 board.push(move[bestMovesCounter+1])
                 print(board)
                 bestMovesCounter += 2
