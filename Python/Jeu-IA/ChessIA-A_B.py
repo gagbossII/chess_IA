@@ -3,7 +3,7 @@ import copy
 
 analyseCounter = 0 # Pour le test
 analyseScore = -30
-maxTurnSimulation = 10
+maxTurnSimulation = 6
 materialScore = 0
 board = chess.Board()
 Hplayer = chess.WHITE # H pour humain
@@ -29,15 +29,8 @@ def playerOpposite(player):
 def bestMoveSequence(sequence, score):
     global FBestMoves
     global analyseScore
-    repetitionCounter = 0
     for i in FBestMoves : 
         if i == sequence : return
-    for sequences in FBestMoves :
-        for i in range(min(len(sequences)-1, len(sequence)-1)) :
-            if sequences[i] == sequence[i] :
-                repetitionCounter += 1
-            else: repetitionCounter = 0
-            if repetitionCounter >= 4 : return  
     if score <= analyseScore :
         return
     elif len(FBestMoves) == 5 :
@@ -70,7 +63,7 @@ def calcMaterialScore(pieces: list[chess.Piece], matScore: int):
 def scores(turn, matScore: int, player, checkRepetition, lastScore: int) : 
     score = 0
     # Calcule le score de l'IA lors de la fin de la parite simulé par celle-ci
-    if board.is_game_over(claim_draw=True): 
+    if board.is_game_over(claim_draw=True) and board.outcome() != None: 
         winner = board.outcome()
         match winner.termination :
             case 1, 8: score = 20 - (turn-1) - matScore # -matScore car le score de matériel est inversé par rapport au score de l'IA
@@ -92,7 +85,7 @@ def scores(turn, matScore: int, player, checkRepetition, lastScore: int) :
     return score
 
 
-def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, lastScore: int, moveSequence: list, takenPieces: list):
+def alpha_beta(turn, matScore: int, player, checkHRepetition, checkAIRepetition, lastScore: int, moveSequence: list, takenPieces: list, a, b) :
     global bestMovesCounter
     global analyseScore
     global analyseCounter
@@ -107,69 +100,54 @@ def minimax(turn, matScore: int, player, checkHRepetition, checkAIRepetition, la
                 board.push(move[bestMovesCounter+1])
                 print(board)
                 bestMovesCounter += 2
-                return False
+                return
         bestMovesCounter = 1
-    
-    #Initialisation des variables récursives et analyse des coups. Cette partie retourne à la fois un score et une séquence de coups
+
     matScore = calcMaterialScore(takenPieces, matScore)
     if player == AIPlayer : 
-        if board.checkers() == None : checkAIRepetition = 0
+        if board.checkers() == chess.SquareSet(chess.BB_EMPTY) : checkAIRepetition = 0
         else : checkAIRepetition += 1
         newScore = scores(turn, matScore, player, checkAIRepetition, lastScore)
     else : 
-        if board.checkers() == None : checkHRepetition = 0
+        if board.checkers() == chess.SquareSet(chess.BB_EMPTY) : checkHRepetition = 0
         else : checkHRepetition += 1
         newScore = scores(turn, matScore, player, checkHRepetition, lastScore)
     if board.is_game_over(claim_draw=True) or (turn == maxTurnSimulation):
         bestMoveSequence(moveSequence, newScore)
-        return True
-    
-    if newScore < analyseScore and turn >= 4 :
-        return True
-    elif newScore == analyseScore : analyseScore = newScore
-    elif turn != 0 : bestMoveSequence(moveSequence, newScore)
+        return newScore
 
-    # Mise en place de la récursivité
-    if board.turn == Hplayer : 
-        for moves in getAvailableMoves() :
-            if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
-                continue
-            if chess.BaseBoard.piece_at(board, moves.to_square) != None :
-                takenPieces.append(chess.BaseBoard.piece_at(board, moves.to_square))
-            board.push(moves)
-            moveSequence.append(moves)
-            minimax(turn+0.5, matScore, AIPlayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
-            moveSequence.pop(len(moveSequence)-1)
-            board.pop()
-        return True
-    if board.turn == AIPlayer : 
-        for moves in getAvailableMoves() :
-            if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
-                continue
-            if chess.BaseBoard.piece_at(board, moves.to_square) != None :
-                takenPieces.append(chess.BaseBoard.piece_at(board, moves.to_square))
-            board.push(moves)
-            moveSequence.append(moves)
-            minimax(turn+0.5, matScore, Hplayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces) # +0.5 car on compte les tour de l'IA et du joueur donc pour analyser le nombre de coups spécifiés par maxTurnSimulation, il faut diviser par 2
-            moveSequence.pop(len(moveSequence)-1)
-            board.pop()
-        return True
-
-def alpha_beta(turn, score, a, b) :
-    if turn == maxTurnSimulation: return score 
+    if turn == maxTurnSimulation: 
+        bestMoveSequence(moveSequence, newScore)
+        return newScore
     else :
         if (turn * 2) % 2 != 0 :
             v = float("inf")
             for moves in getAvailableMoves() :
-                v = min(v, alpha_beta(turn+0.5, a, b))
+                if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
+                    continue
+                if chess.BaseBoard.piece_at(board, moves.to_square) != None :
+                    takenPieces.append(chess.BaseBoard.piece_at(board, moves.to_square))
+                board.push(moves)
+                moveSequence.append(moves)
+                v = min(v, alpha_beta(turn+0.5, matScore, AIPlayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces, a, b))
                 if a >= v : return v
                 b = min(b, v)
+                moveSequence.pop(len(moveSequence)-1)
+                board.pop()
         else :
             v = float("-inf")
             for moves in getAvailableMoves() :
-                v = max(v, alpha_beta(turn+0.5, a, b))
+                if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
+                    continue
+                if chess.BaseBoard.piece_at(board, moves.to_square) != None :
+                    takenPieces.append(chess.BaseBoard.piece_at(board, moves.to_square))
+                board.push(moves)
+                moveSequence.append(moves)
+                v = max(v, alpha_beta(turn+0.5, matScore, Hplayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces, a, b))
                 if b >= v : return v
                 a = max(a, v)
+                moveSequence.pop(len(moveSequence)-1)
+                board.pop()
     return v
 
     
@@ -200,11 +178,11 @@ def game() :
             analyseCounter = 0
             alpha = float("-inf")
             beta = float("inf")
-            if minimax(0, 0, AIPlayer, 0, 0, 0, [], []) :
-                move = FBestMoves[0]
-                print(move)
-                board.push(move[0])
-                print(board)
-            else : continue
+            t = alpha_beta(0, calcMaterialScore(eatenPieces, 0), AIPlayer, 0, 0, analyseScore, [], [], alpha, beta)
+            move = FBestMoves[0]
+            print(move)
+            print(t)
+            board.push(move[0])
+            print(board)
             
 game()
