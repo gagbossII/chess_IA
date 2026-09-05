@@ -1,9 +1,10 @@
 import chess
 import copy
+import random
 
 analyseCounter = 0 # Pour le test
 analyseScore = -30
-maxTurnSimulation = 6
+maxTurnSimulation = 4
 materialScore = 0
 board = chess.Board()
 Hplayer = chess.WHITE # H pour humain
@@ -72,6 +73,7 @@ def scores(turn, matScore: int, player, checkRepetition, lastScore: int) :
         if winner.winner == player : return -score # Inversion du score en cas de défaite de l'IA. Un score positif pour elle devient négatif avec la défaite
         else : return score
     # Calcule le score de l'IA dans le cas ou aucune solution de mat n'est trouvée mais qu'il y a un échec dnas le dernier coup simulé
+    elif chess.BaseBoard.king(board, playerOpposite(player)) == None : return lastScore
     elif turn == maxTurnSimulation :
         if chess.BaseBoard.attackers(board, player, chess.BaseBoard.king(board, playerOpposite(player))) != None: # Analyse si la simulation se termine sur une situation d'échec 
             if player == Hplayer : score = lastScore - 5 - checkRepetition # Plus un échec est répeté, plus celui-ci rapporte de points
@@ -90,7 +92,7 @@ def alpha_beta(turn, matScore: int, player, checkHRepetition, checkAIRepetition,
     global analyseScore
     global analyseCounter
     analyseCounter +=1
-    if analyseCounter > 15000 : return True
+    if analyseCounter > 50000 : return True
     print("Score : " + str(analyseScore) + ", Count : " + str(analyseCounter)) # Pour tester
     # Permet de jouer directement une des 5 meilleures séquences sans devoir tout analyser à nouveau
     if turn == 0 and len(FBestMoves) > 1: # and bestMovesCounter < len(FBestMoves)
@@ -123,6 +125,8 @@ def alpha_beta(turn, matScore: int, player, checkHRepetition, checkAIRepetition,
         if (turn * 2) % 2 != 0 :
             v = float("inf")
             for moves in getAvailableMoves() :
+                if chess.BaseBoard.piece_at(board, moves.from_square) == None :
+                    continue
                 if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
                     continue
                 if chess.BaseBoard.piece_at(board, moves.to_square) != None :
@@ -130,13 +134,18 @@ def alpha_beta(turn, matScore: int, player, checkHRepetition, checkAIRepetition,
                 board.push(moves)
                 moveSequence.append(moves)
                 v = min(v, alpha_beta(turn+0.5, matScore, AIPlayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces, a, b))
-                if a >= v : return v
+                if a >= v : 
+                    moveSequence.pop(len(moveSequence)-1)
+                    board.pop()
+                    return v
                 b = min(b, v)
                 moveSequence.pop(len(moveSequence)-1)
                 board.pop()
         else :
             v = float("-inf")
             for moves in getAvailableMoves() :
+                if chess.BaseBoard.piece_at(board, moves.from_square) == None :
+                    continue
                 if chess.BaseBoard.piece_at(board, moves.from_square).color != board.turn :
                     continue
                 if chess.BaseBoard.piece_at(board, moves.to_square) != None :
@@ -144,7 +153,10 @@ def alpha_beta(turn, matScore: int, player, checkHRepetition, checkAIRepetition,
                 board.push(moves)
                 moveSequence.append(moves)
                 v = max(v, alpha_beta(turn+0.5, matScore, Hplayer, checkHRepetition, checkAIRepetition, newScore, moveSequence, takenPieces, a, b))
-                if b >= v : return v
+                if b >= v : 
+                    moveSequence.pop(len(moveSequence)-1)
+                    board.pop()
+                    return v
                 a = max(a, v)
                 moveSequence.pop(len(moveSequence)-1)
                 board.pop()
@@ -173,6 +185,11 @@ def game() :
                 eatenPieces.append(chess.BaseBoard.piece_at(board, move.to_square))
             board.push(move)
             print(board)
+        elif i: 
+            rnd = random.choice(list(board.generate_legal_moves()))
+            print(rnd)
+            board.push(rnd)
+            print(board)
         else : 
             analyseScore = -30
             analyseCounter = 0
@@ -181,6 +198,7 @@ def game() :
             t = alpha_beta(0, calcMaterialScore(eatenPieces, 0), AIPlayer, 0, 0, analyseScore, [], [], alpha, beta)
             move = FBestMoves[0]
             print(move)
+            print(board)
             print(t)
             board.push(move[0])
             print(board)
